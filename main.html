@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Number Audio Speaker</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the Inter font and overall layout */
+        body {
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f4f8; /* Light blue-gray background */
+            margin: 0;
+            padding: 20px; /* Add some padding for smaller screens */
+            box-sizing: border-box;
+        }
+        .container {
+            max-width: 600px;
+            width: 100%;
+            background-color: #ffffff;
+            padding: 32px;
+            border-radius: 16px; /* More rounded corners */
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); /* Softer shadow */
+            text-align: center;
+        }
+        .button-primary {
+            background-color: #4f46e5; /* Indigo 600 */
+            color: white;
+            padding: 14px 28px;
+            border-radius: 12px; /* Rounded button */
+            font-weight: 600;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            cursor: pointer;
+            border: none;
+            outline: none;
+            box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3); /* Indigo shadow */
+        }
+        .button-primary:hover:not(:disabled) {
+            background-color: #4338ca; /* Indigo 700 */
+            transform: translateY(-2px);
+        }
+        .button-primary:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        .button-primary:disabled {
+            background-color: #a5b4fc; /* Indigo 300 */
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .message-box {
+            background-color: #e0f2fe; /* Light blue 100 */
+            color: #0c4a6e; /* Cyan 800 */
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-top: 24px;
+            font-size: 0.95rem;
+            text-align: left;
+            border: 1px solid #90cdf4; /* Light blue 300 border */
+        }
+        /* Ensure responsive text size */
+        h1 {
+            font-size: 2.25rem; /* text-4xl */
+        }
+        @media (max-width: 640px) {
+            h1 {
+                font-size: 1.75rem; /* text-3xl on small screens */
+            }
+            .container {
+                padding: 24px;
+            }
+            .button-primary {
+                padding: 12px 24px;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container flex flex-col items-center">
+        <h1 class="text-4xl font-extrabold text-gray-800 mb-6">
+            Random Number Audio Speaker
+        </h1>
+        <p class="text-gray-600 mb-8 leading-relaxed">
+            Click the button below to hear 20 random numbers (1-100), each spoken in French,
+            followed by a 10-second pause, and then in English.
+        </p>
+        <button id="startButton" class="button-primary">
+            Start Audio Playback
+        </button>
+        <div id="messageBox" class="message-box w-full hidden">
+            <p id="messageText"></p>
+        </div>
+    </div>
+
+    <script>
+        // Get references to the DOM elements
+        const startButton = document.getElementById('startButton');
+        const messageBox = document.getElementById('messageBox');
+        const messageText = document.getElementById('messageText');
+
+        // Check if SpeechSynthesis is supported by the browser
+        if (!('speechSynthesis' in window)) {
+            messageBox.classList.remove('hidden');
+            messageBox.classList.add('bg-red-100', 'text-red-800', 'border-red-300');
+            messageText.textContent = "Your browser does not support the Web Speech API. Please try a modern browser like Chrome, Firefox, or Edge.";
+            startButton.disabled = true;
+        }
+
+        /**
+         * Speaks a given text in a specified language using the Web Speech API.
+         * Returns a Promise that resolves when the speech is finished.
+         * @param {string} text The text to speak.
+         * @param {string} lang The language code (e.g., 'en-US', 'fr-FR').
+         * @returns {Promise<void>} A Promise that resolves when the utterance finishes.
+         */
+        function speak(text, lang) {
+            return new Promise((resolve, reject) => {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = lang;
+
+                // Find a suitable voice for the language
+                const voices = speechSynthesis.getVoices();
+                const preferredVoice = voices.find(voice => voice.lang === lang && voice.name.includes('Google') || voice.lang === lang);
+                if (preferredVoice) {
+                    utterance.voice = preferredVoice;
+                } else {
+                    console.warn(`No preferred voice found for ${lang}. Using default.`);
+                }
+
+                utterance.onend = () => {
+                    resolve(); // Resolve the promise when speech ends
+                };
+                utterance.onerror = (event) => {
+                    console.error('SpeechSynthesisUtterance error:', event.error);
+                    reject(new Error(`Speech error: ${event.error}`)); // Reject on error
+                };
+
+                speechSynthesis.speak(utterance);
+            });
+        }
+
+        /**
+         * Creates a delay for a specified number of milliseconds.
+         * @param {number} ms The duration of the delay in milliseconds.
+         * @returns {Promise<void>} A Promise that resolves after the delay.
+         */
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        /**
+         * Main function to handle the audio generation and playback sequence.
+         */
+        async function startAudioSequence() {
+            startButton.disabled = true; // Disable button during playback
+            messageBox.classList.remove('hidden');
+            messageBox.classList.remove('bg-red-100', 'text-red-800', 'border-red-300'); // Reset potential error styling
+            messageBox.classList.add('bg-blue-100', 'text-blue-800', 'border-blue-300'); // Info styling
+
+            try {
+                for (let i = 1; i <= 20; i++) {
+                    const randomNumber = Math.floor(Math.random() * 100) + 1;
+                    messageText.textContent = `Processing number ${i}/20: French`;
+                    console.log(`Speaking French: ${randomNumber}`);
+                    await speak(String(randomNumber), 'fr-FR'); // Speak in French
+
+                    messageText.textContent = `Processing number ${i}/20: Pausing for 10 seconds...`;
+                    console.log(`Pausing for 10 seconds...`);
+                    await delay(10000); // 10-second pause
+
+                    messageText.textContent = `Processing number ${i}/20: ${randomNumber}`;
+                    console.log(`Speaking English: ${randomNumber}`);
+                    await speak(String(randomNumber), 'en-US'); // Speak in English
+
+                    // A small delay between numbers to prevent rapid fire
+                    if (i < 20) {
+                        await delay(1000); // 1 second delay between number sets
+                    }
+                }
+                messageText.textContent = "Audio playback complete!";
+                messageBox.classList.remove('bg-blue-100', 'text-blue-800', 'border-blue-300');
+                messageBox.classList.add('bg-green-100', 'text-green-800', 'border-green-300'); // Success styling
+                console.log("Audio playback complete!");
+
+            } catch (error) {
+                messageText.textContent = `An error occurred: ${error.message}. Please check your browser's console for more details.`;
+                messageBox.classList.remove('bg-blue-100', 'text-blue-800', 'border-blue-300');
+                messageBox.classList.add('bg-red-100', 'text-red-800', 'border-red-300'); // Error styling
+                console.error("Error during audio sequence:", error);
+            } finally {
+                startButton.disabled = false; // Re-enable button
+            }
+        }
+
+        // Add event listener to the button
+        startButton.addEventListener('click', startAudioSequence);
+
+        // Populate voices once they are loaded (important for some browsers)
+        speechSynthesis.onvoiceschanged = () => {
+            console.log("Speech synthesis voices changed/loaded.");
+            // You can optionally re-run voice selection logic here if needed
+            // For this simple app, it's handled on each speak call.
+        };
+    </script>
+</body>
+</html>
